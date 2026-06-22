@@ -90,6 +90,7 @@ h1 .ac{color:var(--gold);}
 .rank.S{color:var(--gold);}.rank.A{color:#7fe0c0;}.rank.B{color:#9fd0ff;}.rank.C{color:#cdeef2;}
 .finscore{text-align:center;font-family:"Mochiy Pop One";font-size:2.6rem;color:#fff;margin:0;}
 .finscore span{font-size:1rem;color:#bfe3e9;}
+.wbadge{text-align:center;font-family:"Mochiy Pop One";font-size:.92rem;color:#ff9d6b;margin:2px 0 0;}
 .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0;}
 .statgrid .s{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:9px 4px;text-align:center;}
 .statgrid .s span{display:block;font-family:"Kosugi Maru";font-size:.64rem;color:#bfe3e9;}
@@ -184,6 +185,7 @@ h1 .ac{color:var(--gold);}
   <div class="scene card" id="sResult">
     <div class="rank" id="rRank">A</div>
     <p class="finscore"><span>とくてん</span><br><b id="rScore">0</b></p>
+    <p class="wbadge" id="rWeight"></p>
     <p class="newhs" id="newhs">🎉 ハイスコア更新！</p>
     <div class="statgrid">
       <div class="s"><span>正答率</span><b id="rAcc">0%</b></div>
@@ -228,6 +230,39 @@ const PAT=["①","②","③"];
 function done(id){try{return localStorage.getItem("umicw:done:"+id)==="1";}catch(e){return false;}}
 function clearedIds(){const out=[];DIFF.forEach(d=>[1,2,3].forEach(p=>{if(done(d.k+p))out.push(d.k+p);}));if(done("boss"))out.push("boss");return out;}
 let opt={course:null, time:60};   // course = {type:'stage'|'phrase'|'mix'|'easy', id, label}
+let curWeight=1;
+/* 難易度ウェイト：高い難易度のクロスワードを解いて高難度コースほど高得点 */
+const DW={e:1.0,m:1.7,h:2.5,u:3.4,g:4.5,boss:6.0};
+function diffKeyOf(c){
+  if(!c)return null;
+  if(c.type==="stage")return c.id==="boss"?"boss":c.id[0];
+  return c.type; // 'mix' | 'phrase' | 'easy'
+}
+function courseWeight(c){
+  if(!c)return 1;
+  const d=diffKeyOf(c);
+  if(DW[d]!==undefined)return DW[d];
+  if(d==="phrase")return 1.2;
+  if(d==="easy")return 0.6;
+  if(d==="mix"){let w=1;clearedIds().forEach(id=>{const k=(id==="boss")?"boss":id[0];w=Math.max(w,DW[k]||1);});return w;}
+  return 1;
+}
+/* ランキングのバケツ（①〜③を統合／総合は全難易度） */
+const BUCKETS=[
+ {id:"all",label:"総合（全難易度）"},
+ {id:"e",label:"小学生"},{id:"m",label:"中学生"},{id:"h",label:"高校生"},
+ {id:"u",label:"大学生"},{id:"g",label:"大学院"},{id:"boss",label:"生物学者編"},
+ {id:"mix",label:"クリア済みミックス"},{id:"phrase",label:"フレーズ"},{id:"easy",label:"おためし"},
+];
+function bucketLabel(id){const b=BUCKETS.find(x=>x.id===id);return b?b.label:id;}
+function bucketsFor(c){ // 投稿先（難易度バケツ＋総合）
+  const d=diffKeyOf(c);
+  if(["e","m","h","u","g","boss"].includes(d))return [d,"all"];
+  if(d==="mix")return ["mix","all"];
+  if(d==="phrase")return ["phrase"];
+  if(d==="easy")return ["easy"];
+  return ["all"];
+}
 
 function renderCourses(){
   const wrap=$("courseList");wrap.innerHTML="";
@@ -271,7 +306,8 @@ function renderCourses(){
 function selectCourse(btn,course){
   document.querySelectorAll("#courseList .course").forEach(b=>b.classList.remove("sel"));
   btn.classList.add("sel");opt.course=course;
-  const sb=$("startBtn");sb.disabled=false;sb.textContent="スタート ▶（"+course.label+"）";
+  const w=courseWeight(course);
+  const sb=$("startBtn");sb.disabled=false;sb.textContent="スタート ▶（"+course.label+"・難易度×"+w.toFixed(1)+"）";
 }
 $("timeOpts").querySelectorAll(".opt").forEach(b=>b.addEventListener("click",()=>{
   $("timeOpts").querySelectorAll(".opt").forEach(x=>x.classList.remove("sel"));
@@ -414,7 +450,7 @@ function renderRoma(){
 }
 function mult(){return 1+Math.min(2,Math.floor(combo/10)*0.5);} // 1..3
 function start(){
-  buildPool();score=0;combo=0;maxCombo=0;correct=0;miss=0;words=0;dur=+opt.time;
+  buildPool();curWeight=courseWeight(opt.course);score=0;combo=0;maxCombo=0;correct=0;miss=0;words=0;dur=+opt.time;
   $("hScore").textContent="0";$("hCombo").textContent="0";$("hAcc").textContent="100%";$("hMiss").textContent="0";
   $("imeWarn").classList.remove("show");
   scene("sGame");pick();
@@ -434,7 +470,7 @@ function hud(){
   const tot=correct+miss;$("hAcc").textContent=(tot?Math.round(correct/tot*100):100)+"%";
 }
 function comboPop(n){const e=$("combopop");e.textContent=n+" コンボ！";e.classList.remove("show");void e.offsetWidth;e.classList.add("show");}
-function wordComplete(){ words++; score+=units.length*5+(wordMiss===0?30:0); pick(); }
+function wordComplete(){ words++; score+=Math.round((units.length*5+(wordMiss===0?30:0))*curWeight); pick(); }
 function advanceUnit(){ chosen[ui]=typed; ui++; typed=""; if(ui>=units.length){ wordComplete(); return true; } return false; }
 function tryConsume(ch){
   let guard=0;
@@ -458,7 +494,7 @@ function onChar(ch){
   const wordWas=words;
   if(tryConsume(ch)){
     correct++;combo++;if(combo>maxCombo)maxCombo=combo;
-    score+=Math.round(10*mult());
+    score+=Math.round(10*mult()*curWeight);
     if(combo>0&&combo%10===0)comboPop(combo);
     if(words===wordWas) renderRoma();
     hud();
@@ -494,29 +530,35 @@ const SHARED = !!LB_ENDPOINT;
 function uid(){let u=localStorage.getItem("umicw:uid");if(!u){u="u"+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem("umicw:uid",u);}return u;}
 function getName(){return localStorage.getItem("umicw:name")||"";}
 function setName(n){n=(n||"").trim().slice(0,12);if(n)localStorage.setItem("umicw:name",n);return n;}
-function keyOf(course,time){return (course||"x")+":"+time;}
-function localKey(course,time){return "umicw:type:hs:"+keyOf(course,time);}
-function getLocal(course,time){try{return JSON.parse(localStorage.getItem(localKey(course,time))||"[]");}catch(e){return[];}}
-function setLocal(course,time,a){try{localStorage.setItem(localKey(course,time),JSON.stringify(a.slice(0,20)));}catch(e){}}
-async function fetchBoard(course,time){
+function keyOf(bucket,time){return (bucket||"all")+":"+time;}
+function localKey(bucket,time){return "umicw:type:hs:"+keyOf(bucket,time);}
+function getLocal(bucket,time){try{return JSON.parse(localStorage.getItem(localKey(bucket,time))||"[]");}catch(e){return[];}}
+function setLocal(bucket,time,a){try{localStorage.setItem(localKey(bucket,time),JSON.stringify(a.slice(0,20)));}catch(e){}}
+async function fetchBoard(bucket,time){
   if(!SHARED)return null;
   try{
-    const u=LB_ENDPOINT+"?board=t&key="+encodeURIComponent(keyOf(course,time));
+    const u=LB_ENDPOINT+"?board=t&key="+encodeURIComponent(keyOf(bucket,time));
     const r=await fetch(u,{method:"GET"});const j=await r.json();
     return Array.isArray(j)?j:(j.scores||[]);
   }catch(e){return null;}
 }
-async function postScore(course,time,entry){
+async function postOne(bucket,time,entry){
   if(!SHARED)return false;
   try{
     await fetch(LB_ENDPOINT,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify({board:"t",key:keyOf(course,time),uid:uid(),name:entry.name,score:entry.score,acc:entry.acc,kpm:entry.kpm})});
+      body:JSON.stringify({board:"t",key:keyOf(bucket,time),uid:uid(),name:entry.name,score:entry.score,acc:entry.acc,kpm:entry.kpm})});
     return true;
   }catch(e){return false;}
 }
-async function loadBoard(course,time){
-  if(SHARED){const r=await fetchBoard(course,time);if(r){setLocal(course,time,r);return r;}}
-  return getLocal(course,time);
+async function loadBoard(bucket,time){
+  if(SHARED){const r=await fetchBoard(bucket,time);if(r){setLocal(bucket,time,r);return r;}}
+  return getLocal(bucket,time);
+}
+function cacheLocal(bucket,time,entry){
+  const loc=getLocal(bucket,time);const mine=loc.find(x=>x.name===entry.name);
+  if(mine){if(entry.score>mine.score){mine.score=entry.score;mine.acc=entry.acc;mine.kpm=entry.kpm;}}
+  else loc.push(entry);
+  loc.sort((a,b)=>b.score-a.score||b.acc-a.acc);setLocal(bucket,time,loc.slice(0,20));
 }
 let lastResult=null;
 function end(){
@@ -525,16 +567,18 @@ function end(){
   const tot=correct+miss;const acc=tot?Math.round(correct/tot*100):100;
   const kpm=Math.round(correct/elapsed*60);
   const rk=rankOf(acc,kpm);
-  lastResult={course:opt.course?opt.course.id:"x",time:opt.time,score,acc,kpm,words,maxCombo,rk};
+  const bks=bucketsFor(opt.course);const primary=bks[0];
+  lastResult={buckets:bks,primary:primary,time:opt.time,score,acc,kpm,words,maxCombo,rk};
   $("rRank").textContent=rk;$("rRank").className="rank "+rk;
   $("rScore").textContent=score;
+  $("rWeight").textContent="難易度ボーナス ×"+curWeight.toFixed(1)+"（"+(opt.course?opt.course.label:"")+"）";
   $("rAcc").textContent=acc+"%";$("rKpm").textContent=kpm;$("rWords").textContent=words;$("rCombo").textContent=maxCombo;
   $("newhs").classList.toggle("show",score>0);
   $("nameRow").style.display=(score>0)?"flex":"none";
   renderNameUI();
-  $("lbTitle").textContent=(SHARED?"🌐 みんなのランキング（":"🏆 ランキング（")+modeLabel()+"）";
+  $("lbTitle").textContent=(SHARED?"🌐 みんなのランキング（":"🏆 ランキング（")+bucketLabel(primary)+"・"+opt.time+"秒）";
   scene("sResult");
-  renderBoard(lastResult.course,lastResult.time,null);
+  renderBoard(primary,opt.time,null);
 }
 function renderNameUI(){
   const nm=getName();const ni=$("nameInput");const btn=$("saveScoreBtn");const info=$("nameInfo");
@@ -546,9 +590,9 @@ function renderNameUI(){
   if(ch)ch.addEventListener("click",()=>{ if(confirm("この端末の登録名を変更しますか？")){ localStorage.removeItem("umicw:name"); renderNameUI(); } });
 }
 function modeLabel(){return (opt.course?opt.course.label:"")+"・"+opt.time+"秒";}
-async function renderBoard(course,time,meName){
+async function renderBoard(bucket,time,meName){
   const body=$("lbBody");body.innerHTML='<tr><td colspan="5" class="rk">読み込み中…</td></tr>';
-  const lb=await loadBoard(course,time);
+  const lb=await loadBoard(bucket,time);
   lb.sort((a,b)=>b.score-a.score||b.acc-a.acc);
   body.innerHTML="";$("lbEmpty").style.display=lb.length?"none":"block";
   lb.slice(0,10).forEach((e,i)=>{
@@ -563,35 +607,30 @@ $("saveScoreBtn").addEventListener("click",async()=>{
   if(!lastResult)return;
   let nm=getName(); if(!nm){ nm=setName($("nameInput").value)|| "ゲスト"; if(!getName())setName(nm); }
   const entry={name:nm,score:lastResult.score,acc:lastResult.acc,kpm:lastResult.kpm};
-  const loc=getLocal(lastResult.course,lastResult.time);
-  const mine=loc.find(x=>x.name===nm);
-  if(mine){ if(entry.score>mine.score){mine.score=entry.score;mine.acc=entry.acc;mine.kpm=entry.kpm;} }
-  else loc.push(entry);
-  loc.sort((a,b)=>b.score-a.score);setLocal(lastResult.course,lastResult.time,loc.slice(0,20));
+  lastResult.buckets.forEach(bk=>cacheLocal(bk,lastResult.time,entry));
   $("saveScoreBtn").disabled=true;$("saveScoreBtn").textContent="送信中…";
-  if(SHARED)await postScore(lastResult.course,lastResult.time,entry);
+  if(SHARED){ for(const bk of lastResult.buckets){ await postOne(bk,lastResult.time,entry); } }
   $("nameRow").style.display="none";$("newhs").classList.remove("show");
-  $("nameInfo").innerHTML='<b>'+escapeHtml(nm)+'</b> として記録しました。';
+  $("nameInfo").innerHTML='<b>'+escapeHtml(nm)+'</b> として記録しました（総合と難易度別の両方に反映）。';
   $("saveScoreBtn").disabled=false;
-  await renderBoard(lastResult.course,lastResult.time,nm);
+  await renderBoard(lastResult.primary,lastResult.time,nm);
 });
 $("nameInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("saveScoreBtn").click();}});
 
-/* ---- ランキング閲覧（難易度・コース別） ---- */
-const ALL_COURSES=(()=>{const a=[];DIFF.forEach(d=>[1,2,3].forEach(p=>a.push({id:d.k+(p+1),label:d.grade+PAT[p]})));a.push({id:"boss",label:"生物学者編"});a.push({id:"mix",label:"クリア済みミックス"});a.push({id:"phrase",label:"フレーズ"});a.push({id:"easy",label:"おためし"});return a;})();
+/* ---- ランキング閲覧（総合＋難易度別。①〜③は統合） ---- */
 let rkTime=60;
 function buildViewer(){
   const sel=$("rkCourse");sel.innerHTML="";
-  ALL_COURSES.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.label;sel.appendChild(o);});
-  sel.addEventListener("change",loadViewer);
-  $("rkTime").querySelectorAll(".opt").forEach(b=>b.addEventListener("click",()=>{
-    $("rkTime").querySelectorAll(".opt").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");rkTime=+b.dataset.time;loadViewer();}));
+  BUCKETS.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.label;sel.appendChild(o);});
+  sel.onchange=loadViewer;
+  $("rkTime").querySelectorAll(".opt").forEach(b=>{b.onclick=()=>{
+    $("rkTime").querySelectorAll(".opt").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");rkTime=+b.dataset.time;loadViewer();};});
 }
 async function loadViewer(){
-  const course=$("rkCourse").value;const lab=(ALL_COURSES.find(c=>c.id===course)||{}).label||course;
+  const bucket=$("rkCourse").value;const lab=bucketLabel(bucket);
   $("rkTitle").textContent=(SHARED?"🌐 みんなのランキング（":"🏆 ランキング（")+lab+"・"+rkTime+"秒）";
   const body=$("rkBody");body.innerHTML='<tr><td colspan="5" class="rk">読み込み中…</td></tr>';
-  const lb=await loadBoard(course,rkTime);lb.sort((a,b)=>b.score-a.score||b.acc-a.acc);
+  const lb=await loadBoard(bucket,rkTime);lb.sort((a,b)=>b.score-a.score||b.acc-a.acc);
   body.innerHTML="";$("rkEmpty").style.display=lb.length?"none":"block";
   const me=getName();
   lb.slice(0,15).forEach((e,i)=>{const tr=document.createElement("tr");if(me&&e.name===me)tr.className="me";
