@@ -58,7 +58,7 @@ h1 .ac{color:#ffe0a3;}
 .boss.locked .cta{background:#41607a;pointer-events:none;}
 .boss .lockmsg{font-family:"Kosugi Maru";font-size:.8rem;color:#ffd9b0;margin-top:8px;}
 .note{margin-top:26px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 16px;font-family:"Kosugi Maru";font-size:.84rem;color:#e7f7f8;}
-.cwrank{margin-top:26px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px 16px 18px;}
+.cwrank{margin-top:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px 16px 18px;}
 .cwrank h2{font-family:"Mochiy Pop One";font-weight:400;font-size:1.1rem;color:#fff;margin:0 0 8px;}
 .cwrank h2 small{font-family:"Kosugi Maru";font-size:.72rem;color:#bfe3e9;margin-left:8px;}
 .cwmine{font-family:"Kosugi Maru";font-size:.9rem;color:#dff6f8;margin:2px 0 10px;}
@@ -89,6 +89,18 @@ h1 .ac{color:#ffe0a3;}
     <h1>海のいきもの <span class="ac">クロスワード</span></h1>
     <p class="tagline">クリアするごとに、次の難易度が<strong>ひとつ解放</strong>。<br>小学生から大学院・博士、そして<strong>生物学者レベル</strong>へ。全16ステージの旅。</p>
   </header>
+  <div class="cwrank" id="cwRank">
+    <h2>📊 進行度ランキング <small>みんなで競おう</small></h2>
+    <p class="cwmine" id="cwMine">あなたの進行度を計算中…</p>
+    <div class="cwbtns">
+      <button class="cwbtn prim" id="cwRegister">この進行度を登録／更新</button>
+      <button class="cwbtn" id="cwRefresh">ランキング更新</button>
+    </div>
+    <p class="cwname" id="cwName"></p>
+    <table class="cwtable"><thead><tr><th class="rk">#</th><th>なまえ</th><th>到達</th><th style="text-align:right">進行</th></tr></thead>
+      <tbody id="cwBody"></tbody></table>
+    <div class="cwempty" id="cwEmpty" style="display:none">まだ記録がありません。最初の1位になろう！</div>
+  </div>
   <div class="overall">
     <div class="bar"><i id="obar"></i></div>
     <span class="otext" id="otext">0 / 15 クリア</span>
@@ -103,19 +115,6 @@ h1 .ac{color:#ffe0a3;}
     <a class="cta" id="bossCta" href="#">挑戦する</a>
     <p class="lockmsg" id="bossLock">15ステージをすべてクリアすると解放されます</p>
   </div>
-  <div class="cwrank" id="cwRank">
-    <h2>📊 進行度ランキング <small>みんなで競おう</small></h2>
-    <p class="cwmine" id="cwMine">あなたの進行度を計算中…</p>
-    <div class="cwbtns">
-      <button class="cwbtn prim" id="cwRegister">この進行度を登録／更新</button>
-      <button class="cwbtn" id="cwRefresh">ランキング更新</button>
-    </div>
-    <p class="cwname" id="cwName"></p>
-    <table class="cwtable"><thead><tr><th class="rk">#</th><th>なまえ</th><th>到達</th><th style="text-align:right">進行</th></tr></thead>
-      <tbody id="cwBody"></tbody></table>
-    <div class="cwempty" id="cwEmpty" style="display:none">まだ記録がありません。最初の1位になろう！</div>
-  </div>
-
   <div class="note">
     <b>あそびかた</b>　マスをタップ → ローマ字でそのまま入力（A→ア、KA→カ）。正しくうめると、キーワードのマスが<b>金色に浮かびます</b>。選択中の問題は画面上部に常に表示され、ウィンドウを開かなくても解けます。とちゅうでやめても<b>自動で保存</b>。各ステージは何度でも遊べます。<br>
     ※進行状況はこの端末・ブラウザに保存されます。

@@ -41,6 +41,7 @@ h1 .grade{font-size:.55em;color:var(--sea);}
 .tbtn:active{transform:translateY(1px);}
 .tbtn.primary{background:var(--coral);color:#fff;}
 .tbtn.win{background:var(--win);color:#fff;}
+.tbtn.hint{background:#fff3cd;color:#7a5b00;border:1px solid #e6c45a;}
 .tbtn.ghost{background:#fff;color:var(--sea);border:1.5px solid var(--line);box-shadow:none;}
 .tbtn.on{outline:2.5px solid var(--coral);}
 
@@ -62,6 +63,8 @@ h1 .grade{font-size:.55em;color:var(--sea);}
 .cell.key.sel{background:#ffdca3;}
 .cell.correct{color:var(--correct);}
 .cell.wrong{color:var(--wrong);animation:sh .3s;}
+.cell.hintrev{color:#9aa7ad!important;font-style:italic;background-image:repeating-linear-gradient(45deg,rgba(120,140,150,.10) 0 4px,transparent 4px 8px);}
+.cell.hintrev .letter{opacity:.85;}
 @keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
 .cell .num{position:absolute;top:-1px;left:1px;font-size:calc(var(--cell)*.33);color:#7da3ab;font-weight:700;line-height:1;font-family:"Noto Sans JP";}
 .cell.key .num{color:var(--sand-ink);}
@@ -239,7 +242,8 @@ h1 .grade{font-size:.55em;color:var(--sea);}
     <button class="tbtn ghost on" id="t-kb">⌨️ キーボード</button>
     <button class="tbtn primary" id="check">こたえあわせ</button>
     <button class="tbtn ghost" id="reset">さいしょから</button>
-    <button class="tbtn win" id="staff">こたえを見る</button>
+    <button class="tbtn hint" id="hintWord">💡 ヒント（選んだ語）</button>
+    <button class="tbtn ghost" id="hintClear">ヒントを消す</button>
     <span class="savestate" id="saveState">じどう保存</span>
   </div>
 
@@ -329,7 +333,7 @@ const keyCells=DATA.cells.filter(c=>c.key).sort((a,b)=>a.key-b.key);
 function cellsOf(e){const dr=e.dir==="H"?0:1,dc=e.dir==="H"?1:0,o=[];for(let i=0;i<e.length;i++)o.push([e.r+dr*i,e.c+dc*i]);return o;}
 const entries=[...DATA.across.map(e=>({...e})),...DATA.down.map(e=>({...e}))];
 entries.forEach(e=>e.path=cellsOf(e));
-const state={values:new Map(),sel:null,dir:"H",locked:new Set(),lastCommitted:null};
+const state={values:new Map(),sel:null,dir:"H",locked:new Set(),lastCommitted:null,revealed:new Set()};
 const isTouch=window.matchMedia("(pointer:coarse)").matches||("ontouchstart"in window);
 
 const gridEl=document.getElementById("grid");
@@ -372,6 +376,7 @@ function refresh(){
     const r=+d.dataset.r,c=+d.dataset.c,k=key(r,c);
     const v=state.values.get(k)||"";
     d.querySelector(".letter").textContent=v;
+    d.classList.toggle("hintrev",state.revealed.has(k));
     if(d.dataset.key){
       const ok=normEq(v,cellMap.get(k).ch);
       d.classList.toggle("key",!!ok);
@@ -384,7 +389,7 @@ function refresh(){
     const sd=cellDiv(...state.sel);if(sd)sd.classList.add("sel");highlightClue(w);}
   renderSlots();markSolved();updateProgress();
 }
-function updateProgress(){let f=0;const t=DATA.cells.length;DATA.cells.forEach(cd=>{if(state.values.get(key(cd.r,cd.c)))f++;});
+function updateProgress(){let f=0;const t=DATA.cells.length;DATA.cells.forEach(cd=>{const k=key(cd.r,cd.c);if(state.values.get(k)&&!state.revealed.has(k))f++;});
   const pc=t?Math.round(f/t*100):0;const fill=document.getElementById("pfill");if(fill)fill.style.width=pc+"%";
   const el=document.getElementById("pct");if(el)el.textContent="回答 "+f+" / "+t+"（"+pc+"%）";}
 function setCurClue(w){const el=document.getElementById("curclue");if(!el)return;
@@ -407,16 +412,16 @@ function nativeKb(){return isTouch&&!document.getElementById('kbWin').classList.
 function keepFocus(){if(!isTouch||nativeKb())focusEntry();}
 function commitChar(ch){if(!state.sel)return;const k=key(...state.sel);
   if(state.locked.has(k)){advance();return;}
-  state.values.set(k,ch);state.lastCommitted=[...state.sel];refresh();save();advance();}
+  state.values.set(k,ch);state.revealed.delete(k);state.lastCommitted=[...state.sel];refresh();save();advance();}
 function advance(){if(!state.sel)return;const w=wordAt(state.sel[0],state.sel[1],state.dir);if(!w)return;
   const i=w.path.findIndex(([r,c])=>r===state.sel[0]&&c===state.sel[1]);
   if(i+1<w.path.length){state.sel=w.path[i+1];refresh();scrollSel();keepFocus();return;}
   refresh();keepFocus();}
 function backspace(){if(!state.sel)return;const k=key(...state.sel);
-  if(state.values.get(k)){state.values.delete(k);state.locked.delete(k);refresh();save();keepFocus();return;}
+  if(state.values.get(k)){state.values.delete(k);state.locked.delete(k);state.revealed.delete(k);refresh();save();keepFocus();return;}
   const w=wordAt(state.sel[0],state.sel[1],state.dir);if(!w)return;
   const i=w.path.findIndex(([r,c])=>r===state.sel[0]&&c===state.sel[1]);
-  if(i-1>=0){state.sel=w.path[i-1];state.values.delete(key(...state.sel));state.locked.delete(key(...state.sel));refresh();save();scrollSel();keepFocus();}}
+  if(i-1>=0){state.sel=w.path[i-1];state.values.delete(key(...state.sel));state.locked.delete(key(...state.sel));state.revealed.delete(key(...state.sel));refresh();save();scrollSel();keepFocus();}}
 
 /* dakuten / small cycle */
 const CYCLE={'ア':'ァ','ァ':'ア','イ':'ィ','ィ':'イ','ウ':'ヴ','ヴ':'ゥ','ゥ':'ウ','エ':'ェ','ェ':'エ','オ':'ォ','ォ':'オ',
@@ -493,7 +498,7 @@ function arrowMove(kk){if(!state.sel)return;let[r,c]=state.sel;const m={ArrowRig
 /* ---- save / resume ---- */
 const SAVEKEY="umicw:m1:v2";
 let saveTimer=null;
-function save(){try{localStorage.setItem(SAVEKEY,JSON.stringify([...state.values]));}catch(e){}
+function save(){try{localStorage.setItem(SAVEKEY,JSON.stringify([...state.values].filter(([k])=>!state.revealed.has(k))));}catch(e){}
   const el=document.getElementById("saveState");if(el){el.textContent="✓ 保存しました";el.classList.add("flash");clearTimeout(saveTimer);saveTimer=setTimeout(()=>{el.textContent="じどう保存";el.classList.remove("flash");},1200);}}
 function load(){try{const r=localStorage.getItem(SAVEKEY);if(r)JSON.parse(r).forEach(([k,v])=>state.values.set(k,v));}catch(e){}}
 function clearSave(){try{localStorage.removeItem(SAVEKEY);}catch(e){}}
@@ -584,24 +589,31 @@ function buildClues(){
     li.addEventListener("click",()=>{state.dir=e.dir;onCellClick(e.r,e.c);});return li;};
   DATA.across.forEach(e=>a.appendChild(mk(e)));DATA.down.forEach(e=>d.appendChild(mk(e)));
 }
-function entrySolved(e){return e.path.every(([r,c])=>normEq(state.values.get(key(r,c)),cellMap.get(key(r,c)).ch));}
+function entrySolved(e){return e.path.every(([r,c])=>!state.revealed.has(key(r,c))&&normEq(state.values.get(key(r,c)),cellMap.get(key(r,c)).ch));}
 function markSolved(){entries.forEach(e=>{const li=document.querySelector('li[data-dir="'+e.dir+'"][data-num="'+e.num+'"]');if(li)li.classList.toggle("solved",entrySolved(e));});}
 document.getElementById("clueFilter").addEventListener("input",e=>{const q=e.target.value.trim();
   document.querySelectorAll(".cluelist li").forEach(li=>{li.style.display=(!q||li.dataset.txt.includes(q))?"":"none";});});
 
 /* ---------- slots ---------- */
 function buildSlots(){const s=document.getElementById("slots");keyCells.forEach(c=>{const d=document.createElement("div");d.className="slot";d.dataset.k=c.key;d.innerHTML='<span class="n">'+c.key+'</span><span class="v"></span>';s.appendChild(d);});}
-function renderSlots(){keyCells.forEach(c=>{const slot=document.querySelector('.slot[data-k="'+c.key+'"]');const v=state.values.get(key(c.r,c.c))||"";const ok=normEq(v,c.ch);slot.querySelector(".v").textContent=ok?v:"";slot.classList.toggle("done",!!ok);});}
+function renderSlots(){keyCells.forEach(c=>{const slot=document.querySelector('.slot[data-k="'+c.key+'"]');const kk=key(c.r,c.c);const v=state.values.get(kk)||"";const ok=normEq(v,c.ch)&&!state.revealed.has(kk);slot.querySelector(".v").textContent=ok?v:"";slot.classList.toggle("done",!!ok);});}
 
 /* ---------- check / win ---------- */
+function setMsg(t,col){const m=document.getElementById("msg");m.textContent=t;m.style.color=col||"var(--sea)";}
 document.getElementById("check").addEventListener("click",()=>{
-  let wrong=0,filled=0,total=DATA.cells.length;
+  let wrong=0,userFilled=0,total=DATA.cells.length,reveal=0;
   DATA.cells.forEach(cd=>{const k=key(cd.r,cd.c),v=state.values.get(k),d=cellDiv(cd.r,cd.c);d.classList.remove("wrong");
-    if(v)filled++;if(normEq(v,cd.ch))state.locked.add(k);else if(v&&!normEq(v,cd.ch)){d.classList.add("wrong");wrong++;}});
-  refresh();const msg=document.getElementById("msg");
-  if(filled<total){msg.textContent="まだ "+(total-filled)+" マス のこっています。";msg.style.color="var(--sea)";}
+    if(state.revealed.has(k)){reveal++;return;}
+    if(v)userFilled++;
+    if(normEq(v,cd.ch))state.locked.add(k);
+    else if(v&&!normEq(v,cd.ch)){d.classList.add("wrong");wrong++;}});
+  refresh();
+  if(userFilled<total){
+    if(reveal>0)setMsg("💡 ヒント表示中の語が "+reveal+" マス あります。読んで自分で入力すると、その語もクリアに数えられます。","var(--sea)");
+    else setMsg("まだ "+(total-userFilled)+" マス のこっています。","var(--sea)");
+  }
   else if(wrong===0)win();
-  else{msg.textContent="おしい！ "+wrong+" マス ちがうようです。赤いマスを見直そう。";msg.style.color="var(--wrong)";}
+  else setMsg("おしい！ "+wrong+" マス ちがうようです。赤いマスを見直そう。","var(--wrong)");
 });
 function win(){document.getElementById("msg").textContent="";const ov=document.getElementById("overlay");ov.classList.add("show");
   try{localStorage.setItem("umicw:solved:m1","1");}catch(e){}
@@ -626,11 +638,22 @@ function submitKeyword(){
 }
 document.getElementById("kwSubmit").addEventListener("click",submitKeyword);
 document.getElementById("kwInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submitKeyword();}});
-let staffOn=false, staffSnap=null;
-document.getElementById("staff").addEventListener("click",e=>{staffOn=!staffOn;
-  if(staffOn){staffSnap=new Map(state.values);DATA.cells.forEach(cd=>{state.values.set(key(cd.r,cd.c),cd.ch);});e.target.textContent="こたえを隠す";}
-  else{state.values=staffSnap||new Map();staffSnap=null;e.target.textContent="こたえを見る";document.getElementById("msg").textContent="";}refresh();});
-function resetAll(){state.values.clear();state.locked.clear();state.sel=null;state.lastCommitted=null;staffOn=false;staffSnap=null;document.getElementById("staff").textContent="こたえを見る";document.getElementById("msg").textContent="";document.querySelectorAll(".cell.fill").forEach(d=>d.classList.remove("wrong","correct","inword","sel","key"));clearSave();refresh();}
+function revealSelectedWord(){
+  if(!state.sel){setMsg("マスをえらんでから「ヒント」を押してね。","var(--sea)");return;}
+  const w=wordAt(state.sel[0],state.sel[1],state.dir);
+  if(!w){setMsg("この向きに語がありません。マスや向きを変えてね。","var(--sea)");return;}
+  w.path.forEach(([r,c])=>{const k=key(r,c);state.values.set(k,cellMap.get(k).ch);state.revealed.add(k);state.locked.delete(k);});
+  save();refresh();
+  setMsg("💡 ヒント表示中：この語はクリア判定に入りません。読んで自分で入力するとクリアになります。","var(--sea)");
+}
+function clearHints(){
+  if(!state.revealed.size){setMsg("ヒントは表示されていません。","var(--sea)");return;}
+  state.revealed.forEach(k=>{state.values.delete(k);state.locked.delete(k);});state.revealed.clear();
+  save();refresh();setMsg("ヒントを消しました。自分で入力してね。","var(--sea)");
+}
+document.getElementById("hintWord").addEventListener("click",revealSelectedWord);
+document.getElementById("hintClear").addEventListener("click",clearHints);
+function resetAll(){state.values.clear();state.locked.clear();state.revealed.clear();state.sel=null;state.lastCommitted=null;document.getElementById("msg").textContent="";document.querySelectorAll(".cell.fill").forEach(d=>d.classList.remove("wrong","correct","inword","sel","key","hintrev"));clearSave();refresh();}
 document.getElementById("reset").addEventListener("click",resetAll);
 document.getElementById("again").addEventListener("click",()=>{document.getElementById("overlay").classList.remove("show");resetAll();});
 
