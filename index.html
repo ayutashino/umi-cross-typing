@@ -93,63 +93,6 @@ h1 .ac{color:#ffe0a3;}
     <div class="bar"><i id="obar"></i></div>
     <span class="otext" id="otext">0 / 15 クリア</span>
   </div>
-
-  /* ===== 進行度ランキング ===== */
-const LB_ENDPOINT = "https://script.google.com/macros/s/AKfycbzP8d5y0Z4jL8fxOwjjPf2GCSx17u9HG_Xufxq4poAZSmQgp8jdkcFGtD1H2_p4jjCWtQ/exec"; // タイピングと同じURL
-const SHARED = !!LB_ENDPOINT;
-function uid(){let u=localStorage.getItem("umicw:uid");if(!u){u="u"+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem("umicw:uid",u);}return u;}
-function getName(){return localStorage.getItem("umicw:name")||"";}
-function setName(n){n=(n||"").trim().slice(0,12);if(n)localStorage.setItem("umicw:name",n);return n;}
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function progress(){
-  let cleared=0,hi=-1,hiCount=0;
-  DIFF.forEach((d,di)=>{let c=0;for(let p=0;p<3;p++)if(done(d.k+(p+1))){c++;cleared++;}if(c>0){hi=di;hiCount=c;}});
-  if(done("boss"))cleared++;
-  const pct=Math.round(cleared/16*100);
-  let label;
-  if(done("boss"))label="生物学者編 制覇🎓";
-  else if(hi<0)label="未挑戦";
-  else label=DIFF[hi].grade+" "+hiCount+"/3";
-  const within = hi<0?0:Math.round(hiCount/3*100);
-  return {cleared,pct,label,within,hi};
-}
-function showMine(){
-  const p=progress();
-  document.getElementById("cwMine").innerHTML='あなたの進行度：<b>'+p.cleared+' / 16</b>（'+p.pct+'%）　到達：<b>'+esc(p.label)+'</b>';
-  const nm=getName();const el=document.getElementById("cwName");
-  if(nm)el.innerHTML='ランキング名：<b style="color:#ffd9b0">'+esc(nm)+'</b>（タイピングと共通）<a id="cwCh">変更</a>';
-  else el.textContent="「登録／更新」を押すと、なまえを決めてランキングに参加できます。";
-  const c=document.getElementById("cwCh");if(c)c.addEventListener("click",()=>{if(confirm("登録名を変更しますか？（タイピングと共通）")){localStorage.removeItem("umicw:name");showMine();}});
-}
-async function cwFetch(){
-  if(!SHARED)return JSON.parse(localStorage.getItem("umicw:cw:cache")||"[]");
-  try{const r=await fetch(LB_ENDPOINT+"?board=cw&key=progress",{method:"GET"});const j=await r.json();const a=Array.isArray(j)?j:(j.scores||[]);localStorage.setItem("umicw:cw:cache",JSON.stringify(a));return a;}
-  catch(e){return JSON.parse(localStorage.getItem("umicw:cw:cache")||"[]");}
-}
-async function cwPost(nm,p){
-  if(!SHARED)return false;
-  try{await fetch(LB_ENDPOINT,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body:JSON.stringify({board:"cw",key:"progress",uid:uid(),name:nm,score:p.cleared,acc:p.pct,kpm:0,label:p.label})});return true;}
-  catch(e){return false;}
-}
-async function cwRender(){
-  const body=document.getElementById("cwBody");body.innerHTML='<tr><td colspan="4" class="rk">読み込み中…</td></tr>';
-  const lb=await cwFetch();lb.sort((a,b)=>b.score-a.score||b.acc-a.acc);
-  body.innerHTML="";document.getElementById("cwEmpty").style.display=lb.length?"none":"block";
-  const me=getName();
-  lb.slice(0,15).forEach((e,i)=>{const tr=document.createElement("tr");if(me&&e.name===me)tr.className="me";
-    tr.innerHTML='<td class="rk">'+(i+1)+'</td><td>'+esc(e.name||"———")+'</td><td>'+esc(e.label||("到達 "+e.score))+'</td><td class="pg">'+e.acc+'%</td>';
-    body.appendChild(tr);});
-}
-document.getElementById("cwRegister").addEventListener("click",async()=>{
-  let nm=getName();
-  if(!nm){nm=setName(prompt("ランキングに使うなまえを入力してください（この端末の名前になります）","")||"");if(!nm)return;}
-  const p=progress();const btn=document.getElementById("cwRegister");btn.disabled=true;btn.textContent="送信中…";
-  await cwPost(nm,p);
-  btn.disabled=false;btn.textContent="この進行度を登録／更新";
-  showMine();await cwRender();
-});
-  
   <a class="typecta" href="typing.html">🎮 タイピングゲームで遊ぶ <small>息ぬき・腕だめしに。海のいきものでタイピング対戦（ランキングあり）</small></a>
   <p class="rounds">①をクリアすると「同じ難易度の②」と「次の難易度の①」が解放。②③は同じ難易度を順に進めて解放します。</p>
   <div class="ladder" id="ladder"></div>
@@ -235,7 +178,61 @@ document.getElementById("resetBtn").addEventListener("click",()=>{
 document.getElementById("bossCta").addEventListener("click",e=>{if(document.getElementById("boss").classList.contains("locked"))e.preventDefault();});
 render();
 
-  
+/* ===== 進行度ランキング ===== */
+const LB_ENDPOINT = "https://script.google.com/macros/s/AKfycbzP8d5y0Z4jL8fxOwjjPf2GCSx17u9HG_Xufxq4poAZSmQgp8jdkcFGtD1H2_p4jjCWtQ/exec"; // タイピングと同じURL
+const SHARED = !!LB_ENDPOINT;
+function uid(){let u=localStorage.getItem("umicw:uid");if(!u){u="u"+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem("umicw:uid",u);}return u;}
+function getName(){return localStorage.getItem("umicw:name")||"";}
+function setName(n){n=(n||"").trim().slice(0,12);if(n)localStorage.setItem("umicw:name",n);return n;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function progress(){
+  let cleared=0,hi=-1,hiCount=0;
+  DIFF.forEach((d,di)=>{let c=0;for(let p=0;p<3;p++)if(done(d.k+(p+1))){c++;cleared++;}if(c>0){hi=di;hiCount=c;}});
+  if(done("boss"))cleared++;
+  const pct=Math.round(cleared/16*100);
+  let label;
+  if(done("boss"))label="生物学者編 制覇🎓";
+  else if(hi<0)label="未挑戦";
+  else label=DIFF[hi].grade+" "+hiCount+"/3";
+  const within = hi<0?0:Math.round(hiCount/3*100);
+  return {cleared,pct,label,within,hi};
+}
+function showMine(){
+  const p=progress();
+  document.getElementById("cwMine").innerHTML='あなたの進行度：<b>'+p.cleared+' / 16</b>（'+p.pct+'%）　到達：<b>'+esc(p.label)+'</b>';
+  const nm=getName();const el=document.getElementById("cwName");
+  if(nm)el.innerHTML='ランキング名：<b style="color:#ffd9b0">'+esc(nm)+'</b>（タイピングと共通）<a id="cwCh">変更</a>';
+  else el.textContent="「登録／更新」を押すと、なまえを決めてランキングに参加できます。";
+  const c=document.getElementById("cwCh");if(c)c.addEventListener("click",()=>{if(confirm("登録名を変更しますか？（タイピングと共通）")){localStorage.removeItem("umicw:name");showMine();}});
+}
+async function cwFetch(){
+  if(!SHARED)return JSON.parse(localStorage.getItem("umicw:cw:cache")||"[]");
+  try{const r=await fetch(LB_ENDPOINT+"?board=cw&key=progress",{method:"GET"});const j=await r.json();const a=Array.isArray(j)?j:(j.scores||[]);localStorage.setItem("umicw:cw:cache",JSON.stringify(a));return a;}
+  catch(e){return JSON.parse(localStorage.getItem("umicw:cw:cache")||"[]");}
+}
+async function cwPost(nm,p){
+  if(!SHARED)return false;
+  try{await fetch(LB_ENDPOINT,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify({board:"cw",key:"progress",uid:uid(),name:nm,score:p.cleared,acc:p.pct,kpm:0,label:p.label})});return true;}
+  catch(e){return false;}
+}
+async function cwRender(){
+  const body=document.getElementById("cwBody");body.innerHTML='<tr><td colspan="4" class="rk">読み込み中…</td></tr>';
+  const lb=await cwFetch();lb.sort((a,b)=>b.score-a.score||b.acc-a.acc);
+  body.innerHTML="";document.getElementById("cwEmpty").style.display=lb.length?"none":"block";
+  const me=getName();
+  lb.slice(0,15).forEach((e,i)=>{const tr=document.createElement("tr");if(me&&e.name===me)tr.className="me";
+    tr.innerHTML='<td class="rk">'+(i+1)+'</td><td>'+esc(e.name||"———")+'</td><td>'+esc(e.label||("到達 "+e.score))+'</td><td class="pg">'+e.acc+'%</td>';
+    body.appendChild(tr);});
+}
+document.getElementById("cwRegister").addEventListener("click",async()=>{
+  let nm=getName();
+  if(!nm){nm=setName(prompt("ランキングに使うなまえを入力してください（この端末の名前になります）","")||"");if(!nm)return;}
+  const p=progress();const btn=document.getElementById("cwRegister");btn.disabled=true;btn.textContent="送信中…";
+  await cwPost(nm,p);
+  btn.disabled=false;btn.textContent="この進行度を登録／更新";
+  showMine();await cwRender();
+});
 document.getElementById("cwRefresh").addEventListener("click",cwRender);
 showMine();cwRender();
 </script>
